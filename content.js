@@ -1,38 +1,112 @@
-// Define the exchangeCharacters function
-function exchangeCharacters(inputText) {
-  const syriacLetters = "ܐܒܓܕܗܘܙܚܛܝܟܠܡܢܣܥܦܨܩܪܫܬܡܢܨܦܟ";
-  const hebrewLetters = "אבגדהוזחטיכלמנסעפצקרשתםןץףך";
+function replaceSyriacCharacters(document) {
+  const syriacLetters =
+    "ܐܒܓܕܗܘܙܚܛܝܟܠܡܢܣܥܦܨܩܪܫܬ";
+  const hebrewLetters = "אבגדהוזחטיכלמנסעפצקרשת";
+  const targetTags = ["b", "a", "span"];
 
-  let outputText = "";
+  const replaceText = (originalText) => {
+    const regex = new RegExp(`[${syriacLetters}]`, "g");
+    return originalText.replace(regex, (match) => {
+      const index = syriacLetters.indexOf(match);
+      return hebrewLetters.charAt(index);
+    });
+  };
 
-  for (let i = 0; i < inputText.length; i++) {
-    const inputChar = inputText.charAt(i);
-    const index = syriacLetters.indexOf(inputChar);
-    if (index !== -1) {
-      outputText += hebrewLetters.charAt(index);
+  const processElement = (element) => {
+    if (element.childNodes.length > 0) {
+      for (const child of element.childNodes) {
+        processElement(child);
+      }
     } else {
-      outputText += inputChar;
+      const originalText = element.textContent;
+      const newText = replaceText(originalText);
+      if (newText !== originalText) {
+        element.textContent = newText;
+      }
+    }
+  };
+
+  for (const tag of targetTags) {
+    const elements = document.getElementsByTagName(tag);
+    for (const element of elements) {
+      if (tag === "a") {
+        const originalText = element.childNodes[0]?.nodeValue || "";
+        const newText = replaceText(originalText);
+        if (newText !== originalText) {
+          element.childNodes[0].nodeValue = newText;
+        }
+      } else {
+        const originalText = element.textContent;
+        const newText = replaceText(originalText);
+        if (newText !== originalText) {
+          element.textContent = newText;
+        }
+      }
     }
   }
 
-  return outputText;
-}
-
-// Find all text nodes on the webpage
-const textNodes = document.evaluate(
-  "//text()",
-  document,
-  null,
-  XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE,
-  null
-);
-
-// Replace Syriac characters with Hebrew characters in each text node
-for (let i = 0; i < textNodes.snapshotLength; i++) {
-  const textNode = textNodes.snapshotItem(i);
-  const originalText = textNode.textContent;
-  const newText = exchangeCharacters(originalText);
-  if (originalText !== newText) {
-    textNode.textContent = newText;
+  const textNodes = document.evaluate(
+    "//text()",
+    document,
+    null,
+    XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE,
+    null
+  );
+  for (let i = 0; i < textNodes.snapshotLength; i++) {
+    const textNode = textNodes.snapshotItem(i);
+    const originalText = textNode.textContent;
+    const newText = replaceText(originalText);
+    if (newText !== originalText) {
+      textNode.textContent = newText;
+    }
   }
 }
+
+
+(function () {
+  replaceSyriacCharacters(document);
+  addLinkEventListeners();
+})();
+
+
+function addLinkEventListeners() {
+  const links = document.querySelectorAll("a");
+  for (const link of links) {
+    link.addEventListener("click", () => {
+      setTimeout(() => {
+        replaceSyriacCharacters(document);
+      }, 500);
+    });
+  }
+}
+
+
+let lastContentHash = '';
+
+function checkForContentChanges() {
+  const iframe = document.querySelector("iframe");
+  if (!iframe || !iframe.document) {
+    return;
+  }
+
+  const currentContent = iframe.document.body.innerHTML;
+  const currentHash = hashString(currentContent);
+
+  if (currentHash !== lastContentHash) {
+    replaceSyriacCharacters(iframe.document);
+    addLinkEventListeners(); //
+    lastContentHash = currentHash;
+  }
+}
+
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const charCode = str.charCodeAt(i);
+    hash = (hash << 5) - hash + charCode;
+    hash |= 0; // Convert to 32-bit integer
+  }
+  return hash;
+}
+
+setInterval(checkForContentChanges, 1000); // Check for changes every second
